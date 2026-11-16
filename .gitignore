@@ -1,0 +1,27 @@
+# ============================================================
+# .gitignore — Git 忽略规则
+# ============================================================
+# 依赖
+node_modules/
+
+# 构建产物（GitHub Actions 会重新构建，无需入库）
+dist/
+
+# 日志
+*.log
+dev.log
+dev.err.log
+
+# 编辑器/系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 临时部署脚本
+deploy/_serve.py
+启动手册_带验证.bat
+
+# 环境变量（不要提交密钥）
+.env
+.env.local

@@ -1,0 +1,24 @@
+{
+  "name": "fae-handbook",
+  "version": "1.0.0",
+  "private": true,
+  "description": "内存FAE助理工程师成长手册 (Vue3版)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "validate": "node validate-data.mjs",
+    "prebuild": "node validate-data.mjs",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "vue": "^3.4.29"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@vitejs/plugin-vue": "^5.0.5",
+    "eslint": "^10.15.0",
+    "eslint-plugin-vue": "^10.12.1",
+    "vite": "^5.3.1"
+  }
+}

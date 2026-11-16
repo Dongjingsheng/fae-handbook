@@ -1,0 +1,9 @@
+# .dockerignore — 构建镜像时不复制进上下文的内容
+node_modules
+dist
+logs
+*.log
+.git
+.vscode
+.idea
+deploy

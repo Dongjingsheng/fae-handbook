@@ -1,0 +1,19 @@
+# ============================================================
+# service.yaml — FAE手册 Service（集群内负载均衡）
+# ============================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: fae-handbook
+  namespace: fae
+  labels:
+    app: fae-handbook
+spec:
+  type: ClusterIP
+  selector:
+    app: fae-handbook
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP

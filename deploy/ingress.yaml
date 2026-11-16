@@ -1,0 +1,26 @@
+# ============================================================
+# ingress.yaml — FAE手册 Ingress（对外入口，域名 → Service）
+# ⚠️ 需要集群已安装 Ingress Controller（nginx-ingress / 云厂商负载均衡）
+# ============================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fae-handbook
+  namespace: fae
+  annotations:
+    # nginx-ingress 时启用 gzip 与静态缓存
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      gzip on;
+      gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+spec:
+  rules:
+    - host: faebook.example.com        # 替换为你的域名
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: fae-handbook
+                port:
+                  number: 80

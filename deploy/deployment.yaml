@@ -1,0 +1,52 @@
+# ============================================================
+# deployment.yaml — FAE手册 K8s 部署
+# 2 副本 + 滚动更新 + 探针，用法见 deploy.sh
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fae-handbook
+  namespace: fae
+  labels:
+    app: fae-handbook
+spec:
+  replicas: 2                      # 生产建议 2 副本
+  selector:
+    matchLabels:
+      app: fae-handbook
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: fae-handbook
+    spec:
+      containers:
+        - name: fae-handbook
+          image: <REGISTRY>/fae-handbook:<TAG>   # 部署时替换为你的镜像地址
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          readinessProbe:           # 就绪探针：容器真正能服务后才接流量
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:            # 存活探针：异常自动重启
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 20
+      restartPolicy: Always
