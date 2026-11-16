@@ -1,7 +1,6 @@
 # ============================================================
 # deploy.yml — GitHub Actions 自动部署到 Pages
 # 触发：push 到 main 分支时自动构建并发布
-# 不需要手动跑构建，push 代码即可
 # ============================================================
 name: Deploy to GitHub Pages
 
@@ -31,24 +30,20 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: fae-handbook/package-lock.json
 
       - name: Install dependencies
-        working-directory: fae-handbook
         run: npm ci
 
       - name: Validate data
-        working-directory: fae-handbook
         run: npm run validate
 
       - name: Build
-        working-directory: fae-handbook
         run: npm run build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: fae-handbook/dist
+          path: dist
 
   deploy:
     needs: build
