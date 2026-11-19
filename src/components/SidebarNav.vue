@@ -1,8 +1,9 @@
 <script setup>
 // ============================================================
-// SidebarNav.vue — 左侧导航（周跳转 + 阶段分组 + 数据备份 + 云同步）
+// SidebarNav.vue — 左侧导航（搜索 + 周跳转 + 阶段分组 + 数据备份 + 云同步）
 // ============================================================
 import { ref } from 'vue'
+import SearchPanel from './SearchPanel.vue'
 defineProps({
   weeksData: Array,
   weekShort: Function,
@@ -13,9 +14,10 @@ defineProps({
   doneTasks: Number,
   backupMsg: String,
   syncState: Object,
-  syncMsg: String
+  syncMsg: String,
+  searchAll: Function
 })
-defineEmits(['scrollTo', 'export', 'import', 'sync-now', 'save-sync-token', 'clear-sync-token'])
+defineEmits(['scrollTo', 'export', 'import', 'sync-now', 'save-sync-token', 'clear-sync-token', 'open-day'])
 
 const tokenInput = ref('')
 </script>
@@ -24,6 +26,9 @@ const tokenInput = ref('')
   <aside id="sidebar">
     <div class="sb-title">📘 内存FAE成长手册</div>
     <div class="sb-sub">汇钜存储 · 12周训练 + 深化期<br>Vue3 版 · 每日可勾选</div>
+
+    <!-- 全站搜索 -->
+    <SearchPanel :weeks-data="weeksData" :search-all="searchAll" @open-day="$emit('open-day', $event)" />
 
     <div class="sb-group-title">📌 总览</div>
     <a class="sb-link" href="#overview" @click.prevent="$emit('scrollTo', 'overview')">

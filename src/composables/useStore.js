@@ -49,6 +49,27 @@ function weekDone(w) {
   return t ? Math.round(done / t * 100) : 0
 }
 
+// ---- 阶段统计（P1/P2/P3/M 各自总任务/已完成/百分比） ----
+function phaseStats() {
+  const phases = ['P1', 'P2', 'P3', 'M']
+  return phases.map(p => {
+    const ws = weeksData.filter(w => w.phase === p)
+    let total = 0, done = 0
+    ws.forEach(w => w.days.forEach(d => d.tasks.forEach((_, i) => {
+      total++
+      if (store.value[key(d.id, i)]) done++
+    })))
+    return {
+      phase: p,
+      name: { P1: '原理与规格', P2: '故障诊断', P3: '独立实战', M: '深化期' }[p] || p,
+      icon: { P1: '🟦', P2: '🟨', P3: '🟩', M: '🟪' }[p] || '📌',
+      color: { P1: '#2563eb', P2: '#d97706', P3: '#059669', M: '#7c3aed' }[p] || '#475569',
+      total, done,
+      pct: total ? Math.round(done / total * 100) : 0
+    }
+  })
+}
+
 // ---- 周辅助 ----
 function weekOf(day) {
   return weeksData.find(w => w.days.some(d => d.id === day.id)) || weeksData[0]
@@ -207,15 +228,55 @@ function importData(file) {
   })
 }
 
+// ---- 搜索（全站内容检索：天标题/任务/讲义/资源/产出） ----
+function searchAll(query, limit = 60) {
+  const q = String(query || '').trim().toLowerCase()
+  if (q.length < 1) return []
+  const results = []
+  const push = (day, type, text, where) => {
+    if (results.length >= limit) return
+    results.push({
+      dayId: day.id, dayTitle: day.title, dayDate: day.date, dot: day.dot,
+      type, text: String(text), where: String(where || '').slice(0, 80)
+    })
+  }
+  function hit(day, field) {
+    return field !== undefined && field !== null && String(field).toLowerCase().includes(q)
+  }
+  weeksData.forEach(w => w.days.forEach(d => {
+    const tasks = d.tasks || []
+    const lectures = d.lectures || []
+    const resources = d.resources || []
+    // 标题
+    if (hit(d, d.title)) push(d, 'title', d.title, '第' + d.dot + '天')
+    // 任务
+    tasks.forEach((t, i) => { if (String(t).toLowerCase().includes(q)) push(d, 'task', t, '任务' + (i + 1)) })
+    // 讲义（标题 + 正文去掉标签）
+    lectures.forEach((lec, li) => {
+      if (String(lec.title).toLowerCase().includes(q)) push(d, 'lecture', lec.title, '讲义' + (li + 1))
+      else if (lec.html && String(lec.html).toLowerCase().includes(q)) {
+        const plain = String(lec.html).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100)
+        push(d, 'lecture', lec.title, plain)
+      }
+    })
+    // 资源
+    resources.forEach((r) => { if (String(r.label).toLowerCase().includes(q)) push(d, 'resource', r.label, '资源') })
+    // 工具/产出
+    if (hit(d, d.tools)) push(d, 'tool', d.tools, '工具')
+    if (hit(d, d.out)) push(d, 'out', d.out, '产出')
+  }))
+  return results
+}
+
 export function useStore() {
   return {
     weeksData,
     store, currentDay, noteText, noteMsg,
     totalTasks, doneTasks,
-    isDone, toggleTask, weekDone,
+    isDone, toggleTask, weekDone, phaseStats,
     weekOf, phaseName, phaseIcon, phaseColor, weekShort,
     openDetail, closeDetail, initHash,
     saveNote, clearNote, importNote, scrollToSection,
-    exportData, importData, collectNotes
+    exportData, importData, collectNotes, searchAll
   }
 }

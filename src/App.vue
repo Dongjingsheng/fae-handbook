@@ -17,11 +17,11 @@ const {
   store,
   currentDay, noteText, noteMsg,
   totalTasks, doneTasks,
-  isDone, toggleTask, weekDone,
+  isDone, toggleTask, weekDone, phaseStats,
   weekOf, phaseName, phaseIcon, phaseColor, weekShort,
   openDetail, closeDetail, initHash,
   saveNote, clearNote, importNote, scrollToSection,
-  exportData, importData, collectNotes
+  exportData, importData, collectNotes, searchAll
 } = useStore()
 
 const {
@@ -33,6 +33,7 @@ const {
 
 const backupMsg = ref('')
 const syncMsg = ref('')
+const sbOpen = ref(false)   // 移动端侧边栏展开
 let pushTimer = null
 
 async function onImportBackup(e) {
@@ -134,12 +135,38 @@ function onClearSyncToken() {
   syncMsg.value = '☁️ 已断开云同步（本地数据不受影响）'
 }
 
-onMounted(() => { initHash() })
+// ---- 移动端侧边栏 ----
+function toggleSidebar() { sbOpen.value = !sbOpen.value }
+function closeSidebar() { sbOpen.value = false }
+function handleScrollTo(id) {
+  closeSidebar()
+  scrollToSection(id)
+}
+function handleOpenDay(day) {
+  closeSidebar()
+  openDetail(day)
+}
+
+onMounted(() => {
+  initHash()
+  // 云同步：已配置 token 时自动拉取一次（跨设备取回最新数据）
+  if (isSyncConfigured()) {
+    doPull().then(() => {
+      if (!syncState.value.lastSync) syncMsg.value = '☁️ 已自动同步'
+    })
+  }
+})
 </script>
 
 <template>
   <ErrorBoundary>
+    <!-- 移动端侧边栏遮罩 -->
+    <div id="sidebar-mask" :class="{ show: sbOpen }" @click="closeSidebar"></div>
+    <!-- 移动端汉堡按钮（桌面隐藏） -->
+    <button id="menu-btn" :class="{ hidden: sbOpen }" @click="toggleSidebar" aria-label="打开菜单">☰</button>
+
     <SidebarNav
+      :class="{ 'sb-open': sbOpen }"
       :weeks-data="weeksData"
       :week-short="weekShort"
       :week-done="weekDone"
@@ -150,12 +177,14 @@ onMounted(() => { initHash() })
       :backup-msg="backupMsg"
       :sync-state="syncState"
       :sync-msg="syncMsg"
-      @scroll-to="scrollToSection"
+      :search-all="searchAll"
+      @scroll-to="handleScrollTo"
       @export="exportData"
       @import="onImportBackup"
       @sync-now="onSyncNow"
       @save-sync-token="onSaveSyncToken"
       @clear-sync-token="onClearSyncToken"
+      @open-day="handleOpenDay"
     />
 
   <div id="main">
@@ -173,6 +202,19 @@ onMounted(() => { initHash() })
         </div>
         <div id="global-progress"><div id="global-bar" :style="{ width: (totalTasks ? (doneTasks / totalTasks * 100) : 0) + '%' }"></div></div>
         <div id="global-text">总体进度：{{ doneTasks }} / {{ totalTasks }} 任务完成（{{ totalTasks ? Math.round(doneTasks / totalTasks * 100) : 0 }}%）</div>
+
+        <!-- 阶段进度面板 -->
+        <div class="phase-stats">
+          <div v-for="s in phaseStats()" :key="s.phase" class="phase-stat">
+            <div class="ps-head">
+              <span class="ps-icon">{{ s.icon }}</span>
+              <span class="ps-name">{{ s.name }}</span>
+              <span class="ps-num">{{ doneTasks ? s.pct : 0 }}%</span>
+            </div>
+            <div class="ps-bar"><div class="ps-fill" :style="{ width: s.pct + '%', background: s.color }"></div></div>
+            <div class="ps-detail">{{ s.done }} / {{ s.total }} 任务</div>
+          </div>
+        </div>
       </div>
 
       <!-- ================= 周区块列表 ================= -->
