@@ -244,6 +244,9 @@ section.week{background:var(--card);border:1px solid var(--line);border-radius:1
 footer{color:var(--muted);font-size:12.5px;text-align:center;padding:20px 0 10px;}
 #toTop{position:fixed;right:24px;bottom:24px;background:var(--side);color:#fff;border:none;width:46px;height:46px;border-radius:50%;font-size:20px;cursor:pointer;box-shadow:0 6px 16px rgba(15,23,42,.3);display:none;z-index:99;}
 #toTop.show{display:block;}
+/* 汉堡按钮默认隐藏（仅移动端显示） */
+#menu-btn{display:none;}
+#sidebar-mask{display:none;}
 
 @media (max-width:1100px){#sidebar{width:240px;}#main{margin-left:240px;}}
 @media (max-width:900px){
@@ -288,6 +291,7 @@ footer{color:var(--muted);font-size:12.5px;text-align:center;padding:20px 0 10px
   /* 侧边栏遮罩 */
   #sidebar-mask{
     position:fixed;inset:0;background:rgba(2,6,23,.55);z-index:150;opacity:0;pointer-events:none;transition:opacity .2s;
+    display:block;
   }
   #sidebar-mask.show{opacity:1;pointer-events:auto;}
 }
