@@ -8,6 +8,11 @@ import { weeksData } from '../data/weeks.js'
 const STORE_KEY = 'fae_plan_progress_v1'
 const NOTE_KEY = 'fae_note_'
 
+// ---- 变更通知（云同步用）----
+let changeHandler = null
+export function onStoreChange(fn) { changeHandler = fn }
+function notifyChange() { if (changeHandler) changeHandler() }
+
 function loadStore() {
   try { return JSON.parse(localStorage.getItem(STORE_KEY) || '{}') } catch { return {} }
 }
@@ -29,6 +34,7 @@ function toggleTask(d, idx) {
   const k = key(d.id, idx)
   store.value[k] = !store.value[k]
   saveStore()
+  notifyChange()
 }
 const totalTasks = computed(() =>
   weeksData.reduce((a, w) => a + w.days.reduce((b, d) => b + d.tasks.length, 0), 0)
@@ -108,6 +114,7 @@ function saveNote() {
   if (!currentDay.value) return
   localStorage.setItem(NOTE_KEY + currentDay.value.id, noteText.value)
   noteMsg.value = '✓ 笔记已保存'
+  notifyChange()
   setTimeout(() => { noteMsg.value = '' }, 3000)
 }
 function clearNote() {
@@ -115,6 +122,7 @@ function clearNote() {
   noteText.value = ''
   if (currentDay.value) localStorage.removeItem(NOTE_KEY + currentDay.value.id)
   noteMsg.value = '已清空笔记'
+  notifyChange()
   setTimeout(() => { noteMsg.value = '' }, 3000)
 }
 function importNote(e) {
@@ -135,19 +143,24 @@ function scrollToSection(id) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
 }
 
+// ---- 收集所有笔记（导出/云同步共用） ----
+function collectNotes() {
+  const notes = {}
+  weeksData.forEach(w => w.days.forEach(d => {
+    const n = localStorage.getItem(NOTE_KEY + d.id)
+    if (n) notes[d.id] = n
+  }))
+  return notes
+}
+
 // ---- 进度/笔记 导出与导入（跨设备迁移，数据备份） ----
 function exportData() {
   const payload = {
     version: 1,
     exportedAt: new Date().toISOString(),
     progress: store.value,
-    notes: {}
+    notes: collectNotes()
   }
-  // 遍历所有天，收集该天笔记
-  weeksData.forEach(w => w.days.forEach(d => {
-    const n = localStorage.getItem(NOTE_KEY + d.id)
-    if (n) payload.notes[d.id] = n
-  }))
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -203,6 +216,6 @@ export function useStore() {
     weekOf, phaseName, phaseIcon, phaseColor, weekShort,
     openDetail, closeDetail, initHash,
     saveNote, clearNote, importNote, scrollToSection,
-    exportData, importData
+    exportData, importData, collectNotes
   }
 }

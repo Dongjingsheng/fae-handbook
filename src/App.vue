@@ -5,7 +5,8 @@
 // 逻辑：全部来自 useStore.js
 // ============================================================
 import { onMounted, ref } from 'vue'
-import { useStore } from './composables/useStore.js'
+import { useStore, onStoreChange } from './composables/useStore.js'
+import { useSync } from './composables/useSync.js'
 import ErrorBoundary from './components/ErrorBoundary.vue'
 import SidebarNav from './components/SidebarNav.vue'
 import WeekSection from './components/WeekSection.vue'
@@ -13,16 +14,26 @@ import DetailPage from './components/DetailPage.vue'
 
 const {
   weeksData,
+  store,
   currentDay, noteText, noteMsg,
   totalTasks, doneTasks,
   isDone, toggleTask, weekDone,
   weekOf, phaseName, phaseIcon, phaseColor, weekShort,
   openDetail, closeDetail, initHash,
   saveNote, clearNote, importNote, scrollToSection,
-  exportData, importData
+  exportData, importData, collectNotes
 } = useStore()
 
+const {
+  syncState,
+  saveSyncToken, clearSyncToken,
+  pullFromCloud, pushToCloud, mergeCloudIntoLocal,
+  verifyToken, markSynced, isSyncConfigured
+} = useSync()
+
 const backupMsg = ref('')
+const syncMsg = ref('')
+let pushTimer = null
 
 async function onImportBackup(e) {
   const file = e.target.files && e.target.files[0]
@@ -39,6 +50,90 @@ async function onImportBackup(e) {
   setTimeout(() => { backupMsg.value = ''; e.target.value = '' }, 5000)
 }
 
+// ---------- 云同步 ----------
+async function doPull() {
+  syncState.value.syncing = true
+  syncState.value.error = ''
+  try {
+    const cloud = await pullFromCloud()
+    if (!cloud) { syncMsg.value = '☁️ 云端还没有数据（首次将从本机推送）'; return false }
+    // 合并云端到本地
+    const merged = mergeCloudIntoLocal(cloud, { ...store.value }, collectNotes())
+    // 写回进度
+    Object.keys(merged.progress).forEach(k => { store.value[k] = merged.progress[k] })
+    try { localStorage.setItem('fae_plan_progress_v1', JSON.stringify(store.value)) } catch { /* 忽略写入失败 */ }
+    // 写回笔记
+    Object.keys(merged.notes).forEach(k => { localStorage.setItem('fae_note_' + k, merged.notes[k]) })
+    if (currentDay.value) {
+      noteText.value = localStorage.getItem('fae_note_' + currentDay.value.id) || ''
+    }
+    markSynced()
+    syncMsg.value = '☁️ 已从云端同步（进度 ' + Object.keys(merged.progress).length + ' 项，笔记 ' + Object.keys(merged.notes).length + ' 条）'
+    return true
+  } catch (e) {
+    syncState.value.error = e.message || String(e)
+    syncMsg.value = '❌ 拉取失败：' + syncState.value.error
+    return false
+  } finally {
+    syncState.value.syncing = false
+  }
+}
+
+async function doPush() {
+  if (!isSyncConfigured()) return
+  syncState.value.syncing = true
+  syncState.value.error = ''
+  try {
+    await pushToCloud({ ...store.value }, collectNotes())
+    markSynced()
+    syncMsg.value = '☁️ 已同步到云端 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false })
+  } catch (e) {
+    syncState.value.error = e.message || String(e)
+    syncMsg.value = '❌ 推送失败：' + syncState.value.error
+  } finally {
+    syncState.value.syncing = false
+  }
+}
+
+// 本地变更后 3 秒自动推送（防抖）
+function schedulePush() {
+  if (!isSyncConfigured()) return
+  clearTimeout(pushTimer)
+  pushTimer = setTimeout(doPush, 3000)
+}
+onStoreChange(schedulePush)
+
+async function onSyncNow(mode) {
+  if (mode === 'pull') { await doPull(); return }
+  if (mode === 'push') { await doPush(); return }
+  // 自动：先拉再推（保证拿到最新再合并上传）
+  const ok = await doPull()
+  if (ok !== false) await doPush()
+}
+
+async function onSaveSyncToken(token) {
+  if (!token || !token.trim()) { syncMsg.value = '请输入 Token'; return }
+  saveSyncToken(token)
+  syncMsg.value = '⏳ 正在验证 Token & 拉取云端数据...'
+  try {
+    const login = await verifyToken()
+    syncState.value.syncing = false
+    if (!login) { syncMsg.value = '❌ Token 无效，请重新生成'; saveSyncToken(''); return }
+    // 成功：拉取云端（合并）并推送本地
+    await onSyncNow('auto')
+    syncMsg.value = '☁️ 已连接（账号：' + login + '）' + (syncMsg.value.includes('云端') ? '，' + syncMsg.value : '')
+  } catch (e) {
+    syncState.value.error = e.message || String(e)
+    syncMsg.value = '❌ 连接失败：' + syncState.value.error
+    saveSyncToken('')
+  }
+}
+
+function onClearSyncToken() {
+  clearSyncToken()
+  syncMsg.value = '☁️ 已断开云同步（本地数据不受影响）'
+}
+
 onMounted(() => { initHash() })
 </script>
 
@@ -53,9 +148,14 @@ onMounted(() => { initHash() })
       :total-tasks="totalTasks"
       :done-tasks="doneTasks"
       :backup-msg="backupMsg"
+      :sync-state="syncState"
+      :sync-msg="syncMsg"
       @scroll-to="scrollToSection"
       @export="exportData"
       @import="onImportBackup"
+      @sync-now="onSyncNow"
+      @save-sync-token="onSaveSyncToken"
+      @clear-sync-token="onClearSyncToken"
     />
 
   <div id="main">

@@ -20,6 +20,7 @@ export default [
         window: 'readonly',
         document: 'readonly',
         localStorage: 'readonly',
+        sessionStorage: 'readonly',
         history: 'readonly',
         location: 'readonly',
         Blob: 'readonly',
@@ -28,6 +29,13 @@ export default [
         confirm: 'readonly',
         requestAnimationFrame: 'readonly',
         setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        fetch: 'readonly',
+        btoa: 'readonly',
+        atob: 'readonly',
+        TextEncoder: 'readonly',
+        TextDecoder: 'readonly',
         console: 'readonly'
       }
     },
