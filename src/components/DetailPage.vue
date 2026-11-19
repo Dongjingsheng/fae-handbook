@@ -2,7 +2,10 @@
 // ============================================================
 // DetailPage.vue — 单个学习日详情页（讲义全文 + 任务 + 资源 + 笔记）
 // ============================================================
-defineProps({
+import { ref, computed, watch } from 'vue'
+import { renderMarkdown } from '../utils/md.js'
+
+const props = defineProps({
   day: Object,
   isDone: Function,
   weekOf: Function,
@@ -10,7 +13,40 @@ defineProps({
   noteText: String,
   noteMsg: String
 })
-defineEmits(['close', 'toggle', 'update:noteText', 'saveNote', 'clearNote', 'importNote'])
+const emit = defineEmits(['close', 'toggle', 'update:noteText', 'saveNote', 'clearNote', 'importNote'])
+
+// 笔记视图模式：'edit' 编辑 / 'preview' 预览
+const noteMode = ref('edit')
+const noteSavedAt = ref('')
+const noteRows = ref(10)
+
+watch(() => props.day, () => {
+  noteMode.value = 'edit'
+  noteRows.value = Math.max(10, Math.min(24, String(props.noteText || '').split('\n').length + 2))
+})
+
+const notePreviewHtml = computed(() => renderMarkdown(props.noteText || ''))
+
+function onNoteInput(e) {
+  noteRows.value = Math.max(10, Math.min(24, e.target.value.split('\n').length + 2))
+  emit('update:noteText', e.target.value)
+}
+function onSaveNote() {
+  emit('saveNote')
+  noteSavedAt.value = new Date().toLocaleString('zh-CN', { hour12: false })
+  noteMode.value = 'preview' // 保存后自动切到预览看渲染效果
+}
+function onImportNote(e) {
+  emit('importNote', e)
+  noteMode.value = 'preview' // 导入后自动预览
+  noteSavedAt.value = ''
+}
+function onClearNote() {
+  if (!confirm('确定清空当前笔记吗？此操作不可恢复。')) return
+  emit('clearNote')
+  noteSavedAt.value = ''
+  noteMode.value = 'edit'
+}
 </script>
 
 <template>
@@ -58,17 +94,28 @@ defineEmits(['close', 'toggle', 'update:noteText', 'saveNote', 'clearNote', 'imp
 
         <!-- 笔记板块 -->
         <div class="note-box" id="note-box">
-          <div class="note-head"><span class="nb-title">📝 学习笔记</span><span class="nb-tip">本页笔记只属于当前学习日，自动保存到浏览器</span></div>
+          <div class="note-head">
+            <span class="nb-title">📝 学习笔记</span>
+            <span class="nb-tip">自动保存到浏览器 · 支持 Markdown 语法</span>
+          </div>
+          <div class="note-tabs">
+            <button :class="{ active: noteMode === 'edit' }" @click="noteMode = 'edit'">✏️ 编辑</button>
+            <button :class="{ active: noteMode === 'preview' }" @click="noteMode = 'preview'">👁 预览</button>
+            <span v-if="noteSavedAt" class="note-saved-at">上次保存：{{ noteSavedAt }}</span>
+          </div>
           <textarea
+            v-if="noteMode === 'edit'"
             :value="noteText"
-            @input="$emit('update:noteText', $event.target.value)"
-            placeholder="在这里记录今天学到的要点、疑问、案例。。。&#10;支持：直接打字 → 点「保存笔记」；或「导入笔记」读取 txt/md 文件。"
+            :rows="noteRows"
+            @input="onNoteInput"
+            placeholder="在这里记录今天学到的要点、疑问、案例。。。&#10;支持 Markdown：&#10;# 大标题   ## 小标题&#10;**加粗**   *斜体*   `代码`&#10;- 列表项&#10;1. 有序项&#10;&gt; 引用&#10;```代码块```&#10;|---| 表格&#10;点「预览」查看渲染效果，或「导入笔记」读取 txt/md 文件。"
           ></textarea>
+          <div v-else class="note-preview" v-html="notePreviewHtml"></div>
           <div class="note-tools">
-            <button class="save" @click="$emit('saveNote')">💾 保存笔记</button>
-            <button @click="$refs.noteFile.click()">📥 导入笔记(txt/md)</button>
-            <button @click="$emit('clearNote')">🗑 清空</button>
-            <input ref="noteFile" type="file" accept=".txt,.md,.markdown" style="display:none" @change="$emit('importNote', $event)" />
+            <button class="save" @click="onSaveNote">💾 保存笔记</button>
+            <button @click="noteMode === 'preview' ? noteMode = 'edit' : $refs.noteFile.click()">📥 导入笔记(txt/md)</button>
+            <button @click="onClearNote">🗑 清空</button>
+            <input ref="noteFile" type="file" accept=".txt,.md,.markdown" style="display:none" @change="onImportNote" />
             <span class="note-msg">{{ noteMsg }}</span>
           </div>
         </div>
